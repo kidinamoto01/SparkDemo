@@ -17,18 +17,21 @@
       <sourceFolder url="file://$MODULE_DIR$/../../target/scala-2.11/resource_managed/main" type="java-resource" />
       <sourceFolder url="file://$MODULE_DIR$/../../src/test/resources" type="java-test-resource" />
       <sourceFolder url="file://$MODULE_DIR$/../../target/scala-2.11/resource_managed/test" type="java-test-resource" />
+      <excludeFolder url="file://$MODULE_DIR$/../../target/classes" />
+      <excludeFolder url="file://$MODULE_DIR$/../../target/generated-sources" />
       <excludeFolder url="file://$MODULE_DIR$/../../target/resolution-cache" />
       <excludeFolder url="file://$MODULE_DIR$/../../target/streams" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="SBT: org.scala-lang:scala-library:2.11.7:jar" level="project" />
-    <orderEntry type="library" name="org.apache.spark:spark-sql_2.11:2.1.0" level="project" />
-    <orderEntry type="library" name="org.apache.spark:spark-core_2.11:2.1.0" level="project" />
-    <orderEntry type="library" name="org.apache.spark:spark-streaming_2.11:2.1.0" level="project" />
-    <orderEntry type="library" name="org.apache.spark:spark-mllib_2.11:2.1.0" level="project" />
-    <orderEntry type="library" name="org.nlpcn:nlp-lang:1.7.2" level="project" />
-    <orderEntry type="library" name="org.ansj:tree_split:1.5" level="project" />
     <orderEntry type="library" name="org.ansj:ansj_seg:5.0.4" level="project" />
+    <orderEntry type="library" name="org.ansj:tree_split:1.5" level="project" />
+    <orderEntry type="library" name="org.apache.spark:spark-core_2.11:2.1.0" level="project" />
+    <orderEntry type="library" name="org.apache.spark:spark-mllib_2.11:2.1.0" level="project" />
+    <orderEntry type="library" name="org.apache.spark:spark-sql_2.11:2.1.0" level="project" />
+    <orderEntry type="library" name="org.nlpcn:nlp-lang:1.7.2" level="project" />
+    <orderEntry type="library" name="scala-sdk-2.10.6" level="project" />
+    <orderEntry type="library" name="org.apache.spark:spark-streaming-kafka-0-8_2.10:2.1.0" level="project" />
   </component>
 </module>

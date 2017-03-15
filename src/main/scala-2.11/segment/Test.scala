@@ -49,7 +49,7 @@ object Test {
     wordsData.select($"category",$"words").take(1).foreach(println)
 
     //计算每个词在文档中的词频
-    val hashingTF = new HashingTF().setNumFeatures(500).setInputCol("words").setOutputCol("rawFeatures")
+    val hashingTF = new HashingTF().setNumFeatures(1000).setInputCol("words").setOutputCol("rawFeatures")
     val featurizedData = hashingTF.transform(wordsData)
     println("output2：")
     featurizedData.printSchema()
@@ -120,9 +120,8 @@ object Test {
     println("output5：")
     println(testaccuracy)
 
-    /* model.save(sc,"myModelPath")
+     model.save(sc,"/Users/b/Documents/andlinks/model")
 
-     val sameModel = NaiveBayesModel.load(sc,"myModelPath")*/
 
   }
   }
