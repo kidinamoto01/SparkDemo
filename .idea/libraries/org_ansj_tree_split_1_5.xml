@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="org.ansj:tree_split:1.5" type="repository">
+    <properties maven-id="org.ansj:tree_split:1.5" />
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/ansj/tree_split/1.5/tree_split-1.5.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
