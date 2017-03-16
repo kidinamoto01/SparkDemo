@@ -1,68 +1,66 @@
 package stream
 
 import kafka.serializer.StringDecoder
-
+import org.apache.log4j.{Level, Logger}
+import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
+import org.apache.spark.mllib.classification.NaiveBayesModel
+import org.apache.spark.mllib.linalg.{Vector, Vectors}
+import org.apache.spark.mllib.regression.LabeledPoint
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 import org.apache.spark.streaming._
+import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.kafka._
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkContext}
 /**
   * Created by b on 17/3/15.
   *
   */
 object StreamingMachineLearning {
-  /*def loadDataFromKafka(topics: String,
-                        brokerList: String,
-                        ssc: StreamingContext): DStream[String] = {
 
+  case class RawDataRecord(category: String, text: String)
+
+  def getDataFrame(field1:String,field2:String,sc:SparkContext): Unit ={
+
+    val tmp = Array(Array(field1,field2))
+    val rdd = sc.makeRDD(tmp)
+    val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+    import sqlContext.implicits._
+    val testDF = rdd.map {
+      case Array(s0, s1) => RawDataRecord(s0, s1) }.toDF()
+    testDF
   }
 
-  def main(args: Array[String]) {
-    if (args.length != 2) {
-      println("Required arguments: <kudu host> <kafka host>")
-      sys.exit(42)
-    }
-    val Array(kuduHost, kafkaHost) = args
-    val conf = new SparkConf().setAppName("kudu meetup")
-    val sc = new SparkContext(conf)
+  def loadDataFromKafka(topics: String,
+                        brokerList: String,
+                        ssc: StreamingContext): DStream[String] = {
+  val topicsSet = topics.split(",").toSet
+  val kafkaParams = Map[String, String]("metadata.broker.list" -> brokerList)
+  val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
+    ssc, kafkaParams, topicsSet)
+    messages.map(_._2)
+  }
 
-    val sqlContext = new SQLContext(sc)
-    val ssc = new StreamingContext(sc, Seconds(10))
-   // val kuduContext = new KuduContext(ssc.sparkContext, kuduHost)
-    val brokerList = kafkaHost.split(",").toSet
-    val topics = "meetupstream"
-c
-   /* val stream = loadDataFromKafka(topics, brokerList, ssc).transform { rdd =>
-      val parsed = sqlContext.read.json(rdd)
-      parsed.printSchema()
-      parsed.rdd
-
-    }*/
+  def transformInput(inputData:DataFrame): RDD[LabeledPoint] ={
 
 
-    val topicsSet = topics.split(",").toSet
-    val kafkaParams = Map[String, Object](
-      "bootstrap.servers" -> "localhost:9092,anotherhost:9092",
-      "key.deserializer" -> classOf[StringDeserializer],
-      "value.deserializer" -> classOf[StringDeserializer],
-      "group.id" -> "use_a_separate_group_id_for_each_stream",
-      "auto.offset.reset" -> "latest",
-      "enable.auto.commit" -> (false: java.lang.Boolean)
-    )
-    //val kafkaParams = Map[String, Object]("metadata.broker.list" -> brokerList)
-    /* val stream = KafkaUtils.createDirectStream[String, String](
-       StreamingContext,
-       PreferConsistent,
-       Subscribe[String, String](topicsSet, kafkaParams)
-     )*/
-    val consumerStrategy = ConsumerStrategies.Subscribe[String, String](topicsSet, kafkaParams)
-    val stream = KafkaUtils.createDirectStream[String, String](
-      StreamingContext,
-      LocationStrategies.PreferConsistent,
-      consumerStrategy
-    )
+    val tokenizer = new Tokenizer().setInputCol("text").setOutputCol("words")
+    val wordsData = tokenizer.transform(inputData)
+    val hashingTF = new HashingTF().setNumFeatures(500).setInputCol("words").setOutputCol("rawFeatures")
+    val featurizedData = hashingTF.transform(wordsData)
 
-    stream.map(_._2)
-  }*/
+    val idf = new IDF().setInputCol("rawFeatures").setOutputCol("features")
+    val idfModel = idf.fit(featurizedData)
+    val rescaledData = idfModel.transform(featurizedData)
+
+    //转换成Bayes的输入格式
+    val trainDataRdd = rescaledData.select("category","features").map {
+      case Row(label: String, features: Vector) =>
+        LabeledPoint(label.toDouble, Vectors.dense(features.toArray))
+    }.rdd
+    trainDataRdd
+  }
+
   def main(args: Array[String]) {
     if (args.length < 2) {
       System.err.println(s"""
@@ -74,27 +72,39 @@ c
       System.exit(1)
     }
 
-    //StreamingExamples.setStreamingLogLevels()
+    Logger.getLogger("org").setLevel(Level.WARN)
+    Logger.getLogger("akka").setLevel(Level.WARN)
+    if (args.length != 1) {
+      println("Required arguments: <kudu host> <kafka host>")
+      sys.exit(42)
+    }
+    val Array( kafkaHost) = args
+    val conf = new SparkConf().setAppName("MeetUpStream").setMaster("local[*]")
+    val sc = new SparkContext(conf)
 
-    val Array(brokers, topics) = args
+    val sqlContext = new SQLContext(sc)
+    val ssc = new StreamingContext(sc, Seconds(5))
 
-    // Create context with 2 second batch interval
-    val sparkConf = new SparkConf().setAppName("DirectKafkaWordCount").setMaster("local[*]")
-    val ssc = new StreamingContext(sparkConf, Seconds(2))
+    //val kuduContext = new KuduContext(ssc.sparkContext, kuduHost)
+    // val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+    val brokerList = kafkaHost
+    val topics = "test"
+    val current_time = System.currentTimeMillis
 
-    // Create direct kafka stream with brokers and topics
-    val topicsSet = topics.split(",").toSet
-    val kafkaParams = Map[String, String]("metadata.broker.list" -> brokers)
-    val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
-      ssc, kafkaParams, topicsSet)
+    val numFeatures = 2
+    val model = NaiveBayesModel.load(sc, "/Users/b/Documents/andlinks/model")
+    //test
 
-    // Get the lines, split them into words, count the words and print
-    val lines = messages.map(_._2)
-    val words = lines.flatMap(_.split(" "))
-    val wordCounts = words.map(x => (x, 1L)).reduceByKey(_ + _)
-    wordCounts.print()
+    val dstream = loadDataFromKafka(topics, brokerList, ssc)
+    val stream = dstream.map { x =>
+      val data = x.split(",")
 
-    // Start the computation
+      val result =TrainingUtils.featureVectorization(data(1))
+
+      //case Row(label: String, features: Vector) =>
+      //LabeledPoint(label.toDouble, Vectors.dense(features.toArray))
+      data(0)+" "
+    }.print()
     ssc.start()
     ssc.awaitTermination()
   }
