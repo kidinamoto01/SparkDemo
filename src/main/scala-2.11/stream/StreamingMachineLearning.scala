@@ -2,12 +2,8 @@ package stream
 
 import kafka.serializer.StringDecoder
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
 import org.apache.spark.mllib.classification.NaiveBayesModel
-import org.apache.spark.mllib.linalg.{Vector, Vectors}
-import org.apache.spark.mllib.regression.LabeledPoint
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row, SQLContext}
+import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming._
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.kafka._
@@ -41,7 +37,7 @@ object StreamingMachineLearning {
     messages.map(_._2)
   }
 
-  def transformInput(inputData:DataFrame): RDD[LabeledPoint] ={
+    /*def transformInput(inputData:DataFrame): RDD[LabeledPoint] ={
 
 
     val tokenizer = new Tokenizer().setInputCol("text").setOutputCol("words")
@@ -59,10 +55,10 @@ object StreamingMachineLearning {
         LabeledPoint(label.toDouble, Vectors.dense(features.toArray))
     }.rdd
     trainDataRdd
-  }
+  }*/
 
   def main(args: Array[String]) {
-    if (args.length < 2) {
+    if (args.length < 1) {
       System.err.println(s"""
                             |Usage: DirectKafkaWordCount <brokers> <topics>
                             |  <brokers> is a list of one or more Kafka brokers
@@ -75,7 +71,7 @@ object StreamingMachineLearning {
     Logger.getLogger("org").setLevel(Level.WARN)
     Logger.getLogger("akka").setLevel(Level.WARN)
     if (args.length != 1) {
-      println("Required arguments: <kudu host> <kafka host>")
+      println("Required arguments: <broker>")
       sys.exit(42)
     }
     val Array( kafkaHost) = args
@@ -99,11 +95,11 @@ object StreamingMachineLearning {
     val stream = dstream.map { x =>
       val data = x.split(",")
 
-      val result =TrainingUtils.featureVectorization(data(1))
-
+      val result =model.predict(TrainingUtils.featureVectorization(data(1)))
+//model.predict(TrainingUtils.featureVectorization(x._2)))
       //case Row(label: String, features: Vector) =>
       //LabeledPoint(label.toDouble, Vectors.dense(features.toArray))
-      data(0)+" "
+      data(0)+" "+result
     }.print()
     ssc.start()
     ssc.awaitTermination()
