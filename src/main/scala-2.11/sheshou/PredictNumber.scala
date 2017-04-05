@@ -1,8 +1,11 @@
 package sheshou
 
-import org.apache.spark.{SparkConf, SparkContext}
+import java.sql.{DriverManager, ResultSet}
+
 import org.apache.spark.sql.SQLContext
-import scala.collection.mutable.ArrayBuffer
+import org.apache.spark.{SparkConf, SparkContext}
+
+import scala.collection.mutable.MutableList
 
 
 /**
@@ -12,6 +15,7 @@ object PredictNumber {
   //原始数据
   //case class RawDataRecord(id:String,category: String, ip1: String,ip2:String)
   case class RawDataRecord(id:String,month: String, num: Int)
+  case class Person(key:Int,fname:String,lname:String,address:String)
   //结果存储结构
   case class ResultRecord(id:String,month: String, num: Int,increase:Double,next:Int)
   /**
@@ -58,32 +62,99 @@ object PredictNumber {
   }
 
   def main(args : Array[String]) {
+    if (args.length < 3) {
+      System.err.println(s"""
+                            |Usage: DirectKafkaWordCount <brokers> <topics>
+                            |  <brokers> is a list of one or more Kafka brokers
+                            |  <topics> is a list of one or more kafka topics to consume from
+                            |
+        """.stripMargin)
+      System.exit(1)
+    }
+
+    //get arguments
+    val url = args.mkString.split(' ').take(0)
+    val user = args.mkString.split(' ').take(1)
+    val password = args.mkString.split(' ').take(2)
+
 
     val conf = new SparkConf().setAppName("FilterExample").setMaster("local[*]")
     val sc = new SparkContext(conf)
 
     val sqlContext = new SQLContext(sc)
-    import sqlContext.implicits._
-    val compareRDD = ArrayBuffer[RawDataRecord]()
-    val srcRDD = sc.textFile("/Users/b/Documents/andlinks/predict.txt").filter(_.nonEmpty)
-    val resultRDD = srcRDD.coalesce(1,false).map {
-      x =>
-        val data = x.trim.split(",")
-        compareRDD.append(RawDataRecord(data(0), data(1),data(2).toInt))
-        val input = compareRDD
-        val result = compareInputs(input.toArray)
 
-        result
+    //create hive context
+    //val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)
+    Class.forName("org.apache.hive.jdbc.HiveDriver");
+    val conn = DriverManager.getConnection("jdbc:hive2://192.168.1.23:10000/default", "admin", "123456")
+
+    //get input table
+    val res: ResultSet = conn.createStatement
+      .executeQuery("SELECT * FROM person_hbase")
+
+    //fetch all the data
+    val fetchedRes = MutableList[Person]()
+
+    while(res.next()) {
+      var rec = Person(
+        res.getInt("key"),
+        res.getString("fname"),
+        res.getString("lname"),
+        res.getString("address"))
+      fetchedRes += rec
     }
 
+    //close connection
+    conn.close()
+
+    //save data
+    fetchedRes.foreach(println)
+    val resultRDD = fetchedRes.map{ x =>
+      x.fname
+    }
+    import sqlContext.implicits._
+    sqlContext.setConf("hive.exec.dynamic.partition", "true")
+    sqlContext.setConf("hive.exec.dynamic.partition.mode", "nonstrict")
+    resultRDD.toDF().registerTempTable("temp")
+    val r = fetchedRes.toDF().write.parquet("people.parquet")
+     //saveAsTable("results_test_hive")
+    resultRDD.toDF().write.format("parquet").mode("append").saveAsTable("results_test_hive")
+
+    println(sqlContext.sql("").count())
+    /* val srcRDD = sc.textFile("/Users/b/Documents/andlinks/predict.txt").filter(_.nonEmpty)
+     val resultRDD = srcRDD.coalesce(1,false).map {
+       x =>
+         val data = x.trim.split(",")
+         compareRDD.append(RawDataRecord(data(0), data(1),data(2).toInt))
+         val input = compareRDD
+         val result = compareInputs(input.toArray)
+
+         result
+     }*/
+
+
+
+    /*val resultRDD = fetchedRes.map {
+      x =>
+        //val data = x..split(",")
+        //compareRDD.append(RawDataRecord(data(0), data(1),data(2).toInt))
+        compareRDD.append(x)
+        //val input = compareRDD
+       // val result = compareInputs(compareRDD.toArray)
+
+       // result
+        x.key
+    }*/
 
     //save to file
+   /* import sqlContext.implicits._
 
     resultRDD.toDF().coalesce(1).write
       .format("com.databricks.spark.csv")
       .mode("append")
       .option("header", "true")
       .save("/Users/b/Documents/andlinks/sougou-train/result")
-    //.write.mode(SaveMode.Append).text("/Users/b/Documents/andlinks/sougou-train/")
+*/
+    //save to table
   }
 }
