@@ -127,5 +127,6 @@
         </SOURCES>
       </library>
     </orderEntry>
+    <orderEntry type="library" name="org.ansj:ansj_seg:5.0.4" level="project" />
   </component>
 </module>

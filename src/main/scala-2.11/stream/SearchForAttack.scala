@@ -1,5 +1,7 @@
 package stream
 
+import java.sql.DriverManager
+
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -46,16 +48,16 @@ object SearchForAttack {
 
   }
 
-  def compareRDD(input: Array[RawDataRecord]): Array[ResultRecord] ={
+  def compareInputs(input: Array[RawDataRecord],targets:String): Int ={
     var result = 0
-    val resultRDD = ArrayBuffer[ResultRecord]()
+
     println("****"+input.length)
     if(input.length >= 3){
       val st = input.takeRight(3)
       println(st(0).category+st(1).category+st(2).category)
       //类别相同
       if((st(0).category==st(1).category)&&(st(1).category==st(2).category)){
-        // if(st(0).category=='A'){
+        if(st(0).category.equals(targets)){
         //ip1 相同
         if((st(0).ip1==st(1).ip1)&&(st(1).ip1==st(2).ip1)){
           //ip2相同
@@ -63,12 +65,12 @@ object SearchForAttack {
             result = 1
           }
         }
-        // }
+        }
       }
 
     }
 
-    return resultRDD.toArray
+    return result
 
   }
 
@@ -86,19 +88,30 @@ object SearchForAttack {
         val data = x.trim.split(",")
         compareRDD.append(RawDataRecord(data(0), data(1),data(2),data(3)))
         val input = compareRDD
-        val result = compareData(input.toArray)
+        val result = compareInputs(input.toArray,"A")
 
         result.toString
     }
 
 
+    val filteredRDD = resultRDD
     //save to file
-    import sqlContext.implicits._
-    resultRDD.toDF().coalesce(1).write
-      .format("com.databricks.spark.csv")
-      .mode("append")
-      .option("header", "true")
-      .save("/Users/b/Documents/andlinks/sougou-train/result.csv")
+    val username = "root"
+    val password = "root"
+    val url = "jdbc:mysql://localhost:3306/testuser=" + username + "&password=" + password;
+
+  Class.forName("com.mysql.jdbc.Driver").newInstance
+
+    val conn = DriverManager.getConnection(url,username,password)
+   /* val del = conn.prepareStatement("INSERT INTO sample (value) VALUES (?)")
+    val i = 1
+    del.setLong (1, i)
+    del.executeUpdate
+    conn.close()*/
+
+   // resultRDD.toDF().coalesce(1).write.format("com.databricks.spark.csv").mode("append").option("header", "true").save("/tmp/result.csv")
+
+  //  resultRDD.saveAsTextFile("file///tmp/result.csv")
     //.write.mode(SaveMode.Append).text("/Users/b/Documents/andlinks/sougou-train/")
   }
 /*import org.apache.hadoop.conf.Configuration

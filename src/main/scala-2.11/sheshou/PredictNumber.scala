@@ -104,23 +104,30 @@ object PredictNumber {
       fetchedRes += rec
     }
 
-    //close connection
-    conn.close()
+
 
     //save data
     fetchedRes.foreach(println)
     val resultRDD = fetchedRes.map{ x =>
+
       x.fname
     }
+
     import sqlContext.implicits._
     sqlContext.setConf("hive.exec.dynamic.partition", "true")
     sqlContext.setConf("hive.exec.dynamic.partition.mode", "nonstrict")
-    resultRDD.toDF().registerTempTable("temp")
-    val r = fetchedRes.toDF().write.parquet("people.parquet")
-     //saveAsTable("results_test_hive")
-    resultRDD.toDF().write.format("parquet").mode("append").saveAsTable("results_test_hive")
 
-    println(sqlContext.sql("").count())
+    resultRDD.toDF().registerTempTable("temp")
+    //sqlContext.sql("CREATE TABLE IF NOT EXISTS mytable as select * from  temp")
+    //sqlContext.sql("CREATE TABLE IF NOT EXISTS mytable as select * from  temp")
+    //saveAsTable("results_test_hive")
+    //resultRDD.toDF().write.format("parquet").mode("append").saveAsTable("results_test_hive")
+
+    println(sqlContext.sql("select * from mytable").count())
+
+    //close connection
+    conn.close()
+
     /* val srcRDD = sc.textFile("/Users/b/Documents/andlinks/predict.txt").filter(_.nonEmpty)
      val resultRDD = srcRDD.coalesce(1,false).map {
        x =>
