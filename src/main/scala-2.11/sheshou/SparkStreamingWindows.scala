@@ -4,10 +4,9 @@ import java.util
 
 import kafka.serializer.StringDecoder
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord}
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.SparkConf
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-import org.apache.spark.{SparkConf, SparkContext}
 
 /**
   * Created by suyu on 12/11/16.
@@ -44,8 +43,8 @@ object SparkStreamingWindows {
     val kafkaParams = Map[String, String]("metadata.broker.list" -> brokers)
     val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
       ssc, kafkaParams, topicsSet).map(_._2)
-    val sc = new SparkContext(sparkConf)
-    val sqlContext = new SQLContext(sc)
+    //val sc = new SparkContext(sparkConf)
+  //  val sqlContext = new SQLContext(sc)
     // Get the lines, split them into words, count the words and print
     messages.foreachRDD{
       rdd=>rdd.foreachPartition { partitionOfRecords =>
@@ -69,7 +68,7 @@ object SparkStreamingWindows {
             println(count)
             if(count == m_length.toInt ){
               //get context
-              val newcontent = sqlContext.read.json(record.replace(spliter_in,spliter_out)).toString()
+              val newcontent = (record.replace(spliter_in,spliter_out)).toString()
               val message = new ProducerRecord[String, String]("cleaned_output", null, newcontent)
               producer.send(message)
             }
