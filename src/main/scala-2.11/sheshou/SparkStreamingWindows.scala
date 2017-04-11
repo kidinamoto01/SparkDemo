@@ -4,6 +4,7 @@ import java.util
 
 import kafka.serializer.StringDecoder
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord}
+import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
@@ -41,7 +42,8 @@ object SparkStreamingWindows {
     val ssc = new StreamingContext(sc, Seconds(2))
 
      //
-    //val sc = ssc.
+    //
+    val schema = (new StructType).add("action", StringType).add("timestamp", StringType)
 
     //val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 
@@ -51,13 +53,31 @@ object SparkStreamingWindows {
     val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
       ssc, kafkaParams, topicsSet).map(_._2)
 
+    //set column names
+    val newNames = Seq("id","IP1","IP2","gettime","level","protocol","IPsrc","portsrc","IPdst","portdst","os","login","result")
+
     // Get the lines, split them into words, count the words and print
    messages.foreachRDD{ x =>
 
       val sqlContext = new org.apache.spark.sql.SQLContext(sc)
       val text = sqlContext.read.json(x)
-      text.foreach{
+       text.toDF().printSchema()
+     //println(text.schema)
+     val tempTable= text.toDF().registerTempTable("weblogin")
+
+
+
+//toDF(newNames:_*).
+     //text.columns.foreach(println)
+     if(text.count()>0){
+       val breaches = sqlContext.sql("SELECT destip,srcip, count(*) FROM weblogin  where loginresult = 680  group by destequp,destip,srcip")
+
+       breaches.collect().foreach(println)
+     }
+
+     text.foreach{
         line=>
+
           //create a producer for each partition
           val props = new util.HashMap[String, Object]()
           props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
