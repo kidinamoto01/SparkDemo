@@ -1,3 +1,5 @@
+import java.util.Calendar
+
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -14,12 +16,17 @@ object WordCount {
     val sqlContext = new SQLContext(sc)
     //read json file
     val file =sqlContext.read.json(filepath).toDF()
+    val cal = Calendar.getInstance()
+    val date =cal.get(Calendar.DATE )
+    val Year =cal.get(Calendar.YEAR )
+    val Month1 =cal.get(Calendar.MONTH )
+    val Month = Month1+1
     println(file.first())
     file.coalesce(1).write
       .format("com.databricks.spark.csv")
       .mode("append")
       .option("delimiter","\t")
-      .save("hdfs://192.168.1.21:8020/tmp/")
+      .save("hdfs://192.168.1.21:8020/tmp/"+date+Month+Year)
 
 
   }

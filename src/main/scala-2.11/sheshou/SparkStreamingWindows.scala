@@ -4,7 +4,7 @@ import java.util
 
 import kafka.serializer.StringDecoder
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord}
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
@@ -36,17 +36,43 @@ object SparkStreamingWindows {
     println(m_length)
     // Create context with 2 second batch interval
     val sparkConf = new SparkConf().setAppName("KafkaDataCleaning").setMaster("local[*]")
-    sparkConf.set("spark.driver.allowMultipleContexts", "true")
-    val ssc = new StreamingContext(sparkConf, Seconds(2))
+    //sparkConf.set("spark.driver.allowMultipleContexts", "true")
+    val  sc = new SparkContext(sparkConf)
+    val ssc = new StreamingContext(sc, Seconds(2))
+
+     //
+    //val sc = ssc.
+
+    //val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+
     // Create direct kafka stream with brokers and topics
     val topicsSet = topics.split(",").toSet
     val kafkaParams = Map[String, String]("metadata.broker.list" -> brokers)
     val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
       ssc, kafkaParams, topicsSet).map(_._2)
-    //val sc = new SparkContext(sparkConf)
-  //  val sqlContext = new SQLContext(sc)
+
     // Get the lines, split them into words, count the words and print
-    messages.foreachRDD{
+   messages.foreachRDD{ x =>
+
+      val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+      val text = sqlContext.read.json(x)
+      text.foreach{
+        line=>
+          //create a producer for each partition
+          val props = new util.HashMap[String, Object]()
+          props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
+          props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+            "org.apache.kafka.common.serialization.StringSerializer")
+          props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+            "org.apache.kafka.common.serialization.StringSerializer")
+          val producer = new KafkaProducer[String,String](props)
+
+          val message = new ProducerRecord[String, String]("cleaned_output", null, line.mkString)
+          producer.send(message)
+      }
+    }
+
+    /*messages.foreachRDD{
       rdd=>rdd.foreachPartition { partitionOfRecords =>
         //create a producer for each partition
         val props = new util.HashMap[String, Object]()
@@ -56,6 +82,7 @@ object SparkStreamingWindows {
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
           "org.apache.kafka.common.serialization.StringSerializer")
         val producer = new KafkaProducer[String,String](props)
+
         partitionOfRecords.foreach { record =>
           if (record.length > 0) {
             println(spliter_in)
@@ -76,7 +103,7 @@ object SparkStreamingWindows {
 
         }
       }
-    }
+    }*/
 
     // Start the computation
     ssc.start()
