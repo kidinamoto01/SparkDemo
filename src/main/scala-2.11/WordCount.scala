@@ -19,7 +19,7 @@ object WordCount {
       .format("com.databricks.spark.csv")
       .mode("append")
       .option("delimiter","\t")
-      .save("/Users/b/Documents/sheshou")
+      .save("hdfs://192.168.1.21:8020/tmp/")
 
 
   }
