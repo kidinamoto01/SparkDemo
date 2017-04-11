@@ -67,7 +67,7 @@ object SparkStreamingWindows {
             "org.apache.kafka.common.serialization.StringSerializer")
           val producer = new KafkaProducer[String,String](props)
 
-          val message = new ProducerRecord[String, String]("cleaned_output", null, line.mkString)
+          val message = new ProducerRecord[String, String]("cleaned_output", null, line.mkString("\t"))
           producer.send(message)
       }
     }
