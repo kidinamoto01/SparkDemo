@@ -53,6 +53,9 @@ object SparkStreamingWindows {
     val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
       ssc, kafkaParams, topicsSet).map(_._2)
 
+    val messages2 = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
+      ssc, kafkaParams, Set("new")).map(_._2)
+
     //set column names
     val newNames = Seq("id","IP1","IP2","gettime","level","protocol","IPsrc","portsrc","IPdst","portdst","os","login","result")
 
@@ -69,14 +72,44 @@ object SparkStreamingWindows {
 
 //toDF(newNames:_*).
      //text.columns.foreach(println)
-     if(text.count()>0){
-       val breaches = sqlContext.sql("SELECT destip,srcip, count(*) FROM weblogin  where loginresult = 680  group by destequp,destip,srcip")
+     if(text.count()>0) {
 
-       breaches.collect().foreach(println)
+
+       text.foreach {
+         line =>
+
+           //create a producer for each partition
+           val props = new util.HashMap[String, Object]()
+           props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
+           props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+             "org.apache.kafka.common.serialization.StringSerializer")
+           props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+             "org.apache.kafka.common.serialization.StringSerializer")
+           val producer = new KafkaProducer[String, String](props)
+
+           val message = new ProducerRecord[String, String]("cleaned_output", null, line.mkString("\t"))
+           producer.send(message)
+       }
      }
+    }
 
-     text.foreach{
-        line=>
+    messages2.foreachRDD{ x =>
+
+      val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+      val text = sqlContext.read.json(x)
+      text.toDF().printSchema()
+      //println(text.schema)
+      val tempTable= text.toDF().registerTempTable("weblogin")
+
+
+
+      //toDF(newNames:_*).
+      //text.columns.foreach(println)
+      if(text.count()>0){
+
+
+      text.foreach {
+        line =>
 
           //create a producer for each partition
           val props = new util.HashMap[String, Object]()
@@ -85,10 +118,11 @@ object SparkStreamingWindows {
             "org.apache.kafka.common.serialization.StringSerializer")
           props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
             "org.apache.kafka.common.serialization.StringSerializer")
-          val producer = new KafkaProducer[String,String](props)
+          val producer = new KafkaProducer[String, String](props)
 
           val message = new ProducerRecord[String, String]("cleaned_output", null, line.mkString("\t"))
           producer.send(message)
+      }
       }
     }
 
